@@ -1,0 +1,862 @@
+﻿@namespace BootstrapBlazor.Components
+@typeparam TItem
+@inherits BootstrapComponentBase
+
+<div @attributes="@AdditionalAttributes" class="@ClassName" style="@StyleString" @ref="TableElement">
+    <CascadingValue Value="this" IsFixed="true">
+        @TableColumns?.Invoke(new TItem())
+    </CascadingValue>
+    @if (FirstRender)
+    {
+        if (ShowSkeleton)
+        {
+            <SkeletonTable ShowToolbar="@ShowToolbar"></SkeletonTable>
+        }
+        else
+        {
+            <div class="table-loading">
+                <Spinner Color="Color.Primary" />
+            </div>
+        }
+    }
+    else
+    {
+        @if (ShowSearch && SearchMode == SearchMode.Top)
+        {
+            <div class="table-search">
+                @RenderSearch
+            </div>
+        }
+        <div class="table-toolbar">
+            @if (IsExcel || ShowToolbar)
+            {
+                <TableToolbar OnGetSelectedRows="@GetSelectedRows">
+                    @if (IsExcel || ShowDefaultButtons)
+                    {
+                        @if (ShowAddButton)
+                        {
+                            <TableToolbarButton TItem="TItem" Color="Color.Success" OnClick="AddAsync" Icon="fa fa-plus" Text="@AddButtonText" />
+                        }
+                        @if (!IsExcel && ShowEditButton)
+                        {
+                            <TableToolbarButton TItem="TItem" IsDisabled="SelectedRows.Count != 1" Color="Color.Primary" OnClick="EditAsync" Icon="fa fa-pencil" Text="@EditButtonText" />
+                        }
+                        @if (ShowDeleteButton)
+                        {
+                            <TableToolbarPopconfirmButton TItem="TItem" Color="Color.Danger"
+                                                          Icon="fa fa-remove" Text="@DeleteButtonText" IsDisabled="!SelectedRows.Any()"
+                                                          OnBeforeClick="ConfirmDelete" OnConfirm="DeleteAsync"
+                                                          CloseButtonText="@CancelDeleteButtonText" Content="@ConfirmDeleteContentText"
+                                                          ConfirmButtonText="@ConfirmDeleteButtonText" ConfirmButtonColor="Color.Danger" />
+                        }
+                    }
+                    @TableToolbarTemplate
+                </TableToolbar>
+                <div class="float-end table-toolbar-button btn-group table-column-right">
+                    @if (!IsExcel && ShowRefresh)
+                    {
+                        <Button Icon="fa fa-refresh" Text="@RefreshButtonText" Color="@Color.Secondary" OnClickWithoutRender="@OnClickRefreshAsync" />
+                    }
+                    @if (!IsExcel && ShowCardView)
+                    {
+                        <Button Icon="fa fa-bars" Text="@CardViewButtonText" Color="@Color.Secondary" OnClick="@OnClickCardView" />
+                    }
+                    @if (ShowColumnList)
+                    {
+                        <div class="btn-group btn-col" role="group">
+                            <button class="btn btn-secondary dropdown-toggle" data-bs-auto-close="false" data-bs-toggle="dropdown" type="button" title="@ColumnButtonTitleText">
+                                <i class="fa fa-th-list"></i>
+                                <span class="d-none d-sm-inline-block">@ColumnButtonText</span>
+                                <span class="caret"></span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-right shadow">
+                                @foreach (var item in Columns)
+                                {
+                                    var poco = ColumnVisibles.First(i => i.FieldName == item.GetFieldName());
+                                    <div class="dropdown-item">
+                                        <Checkbox ShowAfterLabel="true" IsDisabled="@GetColumnsListState(item)"
+                                                    DisplayText="@item.GetDisplayName()" @bind-Value="@poco.Visible">
+                                        </Checkbox>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                    @if (ShowExportButton)
+                    {
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-secondary dropdown-toggle" data-bs-toggle="dropdown" type="button" title="@ExportButtonText">
+                                <i class="fa fa-download"></i>
+                                <span class="d-none d-sm-inline-block">@ExportButtonText</span>
+                                <span class="caret"></span>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-right shadow">
+                                <div class="dropdown-item" @onclick="@ExportAsync">
+                                    <i class="fa fa-file-excel-o"></i>
+                                    <span>MS-Excel</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            @if (ShowSearch && SearchMode == SearchMode.Popup)
+            {
+                <div class="float-end table-toolbar-button btn-group">
+                    @if (ShowSearchText)
+                    {
+                        <div class="input-group">
+                            <BootstrapInput class="table-toolbar-search" placeholder="@SearchPlaceholderText" @bind-Value="@SearchText" ShowLabel="false">
+                                @if (ShowSearchTextTooltip)
+                                {
+                                    <Tooltip Placement="Placement.Top" Title="@SearchTooltip" IsHtml="true" />
+                                }
+                            </BootstrapInput>
+                            <Button Color="@Color.Secondary" Icon="fa fa-search" OnClickWithoutRender="@SearchClick">
+                                <span class="d-none d-sm-inline-block">@SearchButtonText</span>
+                            </Button>
+                            @if (ShowResetButton)
+                            {
+                                <Button Color="@Color.Secondary" Icon="fa fa-trash" OnClickWithoutRender="@ClearSearchClick">
+                                    <span class="d-none d-sm-inline-block">@ResetSearchButtonText</span>
+                                </Button>
+                            }
+                            @if (ShowAdvancedSearch)
+                            {
+                                @RenderAdvanceSearchButton
+                            }
+                        </div>
+                    }
+                    else if (ShowAdvancedSearch)
+                    {
+                        @RenderAdvanceSearchButton
+                    }
+                </div>
+            }
+        </div>
+
+        @if (ShowTopPagination && TotalCount > 0 && IsPagination)
+        {
+            <div class="table-pagination is-top">
+                <Pagination PageItemsSource="@PageItemsSource" PageItems="@PageItems" TotalCount="@TotalCount" PageIndex="@PageIndex" OnPageClick="@OnPageClick" OnPageItemsChanged="@OnPageItemsChanged"></Pagination>
+            </div>
+        }
+        <div class="@WrapperClassName">
+            @if (ActiveRenderMode == TableRenderMode.Table)
+            {
+                if (IsFixedHeader)
+                {
+                    <div class="table-fixed-header">
+                        <table class="@TableClassName">
+                            @RenderColgroup.Invoke(true)
+                            @RenderHeader.Invoke(true)
+                        </table>
+                    </div>
+                    <div class="table-fixed-body scroll">
+                        @RenderTable.Invoke(false)
+                    </div>
+                }
+                else if (FixedExtendButtonsColumn || Columns.Any(col => col.Fixed))
+                {
+                    <div class="overflow-auto">
+                        @RenderTable.Invoke(true)
+                    </div>
+                }
+                else
+                {
+                    @RenderTable.Invoke(true)
+                }
+            }
+            else
+            {
+                foreach (var item in RowItems)
+                {
+                    <DynamicElement class="@GetRowClassString(item, "table-row")"
+                                    TriggerClick="@(ClickToSelect || OnClickRowCallback != null)" OnClick="() => ClickRow(item)">
+                        @if (IsMultipleSelect)
+                        {
+                            <div class="table-cell">
+                                <label>@CheckboxDisplayText</label>
+                                <Checkbox TValue="TItem" Value="@item" State="@RowCheckState(item)" OnStateChanged="OnCheck" @onclick:stopPropagation></Checkbox>
+                            </div>
+                        }
+                        @if (ShowLineNo)
+                        {
+                            <div class="table-cell">
+                                <label>@LineNoText</label>
+                                <span>@(RowItems.IndexOf(item) + 1 + (PageIndex -1) * PageItems)</span>
+                            </div>
+                        }
+                        @if (!IsExcel && ShowExtendButtons && IsExtendButtonsInRowHeader)
+                        {
+                            @RenderExtendButtons(item)
+                        }
+                        @foreach (var col in GetColumns())
+                        {
+                            var cellClass = "";
+                            string? value = null;
+                            <div class="table-cell">
+                                <label>
+                                    @col.GetDisplayName()
+                                </label>
+                                @if (col.OnCellRender != null)
+                                {
+                                    var args = new TableCellArgs { Row = item, ColumnName = col.GetFieldName() };
+                                    col.OnCellRender(args);
+                                    cellClass = args.Class;
+                                    value = args.Value;
+                                }
+                                @if(value == null)
+                                {
+                                    <span>
+                                        @GetValue(col, item)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="@cellClass">
+                                        @value
+                                    </span>
+                                }
+                            </div>
+                        }
+                        @if (!IsExcel && ShowExtendButtons && !IsExtendButtonsInRowHeader)
+                        {
+                            @RenderExtendButtons(item)
+                        }
+                    </DynamicElement>
+                }
+                @if (ShowFooter && !IsHideFooterWhenNoData)
+                {
+                    <div class="table-row table-footer">
+                        <CascadingValue Value="@ScreenSize" Name="ScreenSize">
+                            <CascadingValue Value="@RenderModelResponsiveWidth" Name="RenderModelResponsiveWidth">
+                                @TableFooter?.Invoke(RowItems)
+                            </CascadingValue>
+                        </CascadingValue>
+                    </div>
+                }
+            }
+        </div>
+
+        if (ActiveRenderMode == TableRenderMode.Table)
+        {
+            if (FilterColumns == null) FilterColumns = Columns.Where(i => i.Filterable);
+            if (FilterColumns.Any())
+            {
+                <CascadingValue Value="this" IsFixed="true">
+                    <div class="table-filter">
+                        @foreach (var col in FilterColumns)
+                        {
+                            <TableFilter Column="col" />
+                        }
+                    </div>
+                </CascadingValue>
+            }
+        }
+
+        @if (!ShowTopPagination && TotalCount > 0 && IsPagination)
+        {
+            <div class="table-pagination">
+                <Pagination PageItemsSource="@PageItemsSource" PageItems="@PageItems" TotalCount="@TotalCount" PageIndex="@PageIndex" OnPageClick="@OnPageClick" OnPageItemsChanged="@OnPageItemsChanged"></Pagination>
+            </div>
+        }
+        <div class="table-loader">
+            <Spinner Color="Color.Primary" />
+        </div>
+    }
+</div>
+
+@code {
+    RenderFragment<bool> RenderTable => hasHeader =>
+    @<table class="@TableClassName">
+        @RenderColgroup.Invoke(false)
+        @if (hasHeader)
+        {
+            @RenderHeader.Invoke(false)
+        }
+        <tbody>
+            @if (!IsExcel && EditMode == EditMode.EditForm && ShowAddForm)
+            {
+                @RenderEditForm.Invoke((EditModel, ItemChangedType.Add))
+            }
+            @if (AddInCell && !IsTracking)
+            {
+                @RenderRow(EditModel)
+            }
+            @if(ScrollMode == ScrollMode.Virtual)
+            {
+                @if(Items != null)
+                {
+                    <Microsoft.AspNetCore.Components.Web.Virtualization.Virtualize
+                        ItemSize="RowHeight" OverscanCount="10" Items="@Items.ToList()" ChildContent="RenderRow" />
+                }
+                else
+                {
+                    <Microsoft.AspNetCore.Components.Web.Virtualization.Virtualize
+                        ItemSize="RowHeight" OverscanCount="10"
+                        ItemsProvider="LoadItems" ItemContent="RenderRow">
+                        <Placeholder>
+                            @RenderPlaceHolderRow
+                        </Placeholder>
+                    </Microsoft.AspNetCore.Components.Web.Virtualization.Virtualize>
+                }
+            }
+            else
+            {
+                @foreach (var item in RowItems)
+                {
+                    @RenderRow(item)
+                    if (!IsExcel && ShowDetails())
+                    {
+                        <tr class="@GetDetailRowClassString(item)">
+                            <td>&nbsp;</td>
+                            <td colspan="@GetColumnCount()">
+                                <div class="table-cell is-wrap">
+                                    @if (DetailRows.Contains(item))
+                                    {
+                                        @DetailRowTemplate?.Invoke(item)
+                                    }
+                                    else
+                                    {
+                                        <div class="table-loading">
+                                            <Spinner Color="Color.Primary" />
+                                        </div>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    if (!IsExcel && EditMode == EditMode.EditForm && ShowEditForm && SelectedRows.FirstOrDefault() == item)
+                    {
+                        @RenderEditForm((EditModel, ItemChangedType.Update))
+                    }
+                }
+                @if(IsShowEmpty)
+                {
+                    <tr>
+                        <td colspan="@GetColumnCount()">
+                            <Empty Text="@EmptyText" Image="@EmptyImage" Template="EmptyTemplate!">
+                            </Empty>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+        @if (ShowFooter && !IsHideFooterWhenNoData)
+        {
+            <tfoot>
+                <CascadingValue Value="@(ScreenSize > RenderModelResponsiveWidth)" Name="IsMobileMode">
+                    <CascadingValue Value="@RowItems" Name="TableFooterContext">
+                        @if (FooterTemplate != null)
+                        {
+                            @FooterTemplate(RowItems)
+                        }
+                        else
+                        {
+                            <tr>
+                                @TableFooter?.Invoke(RowItems)
+                            </tr>
+                        }
+                    </CascadingValue>
+                </CascadingValue>
+            </tfoot>
+        }
+    </table>;
+
+RenderFragment<bool> RenderColgroup => hasScroll =>
+@<colgroup>
+    @if (ShowDetails())
+    {
+        <col width="@DetailColumnWidth" />
+    }
+    @if (IsMultipleSelect)
+    {
+        @if (ShowCheckboxText)
+        {
+            <col width="@ShowCheckboxTextColumnWidth" />
+        }
+        else
+        {
+            <col width="@CheckboxColumnWidth" />
+        }
+    }
+    @if (ShowLineNo)
+    {
+        <col width="@LineNoColumnWidth" />
+    }
+    @if(!IsExcel && ShowExtendButtons && IsExtendButtonsInRowHeader)
+    {
+        <col width="@ExtendButtonColumnWidth" />
+    }
+    @foreach (var col in GetColumns())
+    {
+        @if (CheckShownWithBreakpoint(col))
+        {
+            <col width="@col.Width" />
+        }
+    }
+    @if (!IsExcel && ShowExtendButtons && !IsExtendButtonsInRowHeader)
+    {
+        <col width="@ExtendButtonColumnWidth" />
+    }
+    @if (hasScroll)
+    {
+        <col width="7" />
+    }
+</colgroup>;
+
+RenderFragment<bool> RenderHeader => hasScroll =>
+@<thead class="@HeaderClass">
+    @if (MultiHeaderTemplate != null)
+    {
+        @MultiHeaderTemplate
+    }
+    @if (GetShowHeader())
+    {
+        <tr>
+            @if (ShowDetails())
+            {
+                <th>
+                    <div class="table-cell">&nbsp;</div>
+                </th>
+            }
+            @if (IsMultipleSelect)
+            {
+                <th class="@CheckboxColumnClass">
+                    <div class="table-cell">
+                        <Checkbox TValue="TItem" DisplayText="@CheckboxDisplayTextString" ShowAfterLabel="@ShowCheckboxText"
+                                  State="@HeaderCheckState()" OnStateChanged="OnHeaderCheck"></Checkbox>
+                    </div>
+                </th>
+            }
+            @if (ShowLineNo)
+            {
+                <th>
+                    <div class="table-cell">@LineNoText</div>
+                </th>
+            }
+            @if (!IsExcel && ShowExtendButtons && IsExtendButtonsInRowHeader)
+            {
+                @RenderExtendButtonsHeader
+            }
+            @foreach (var col in GetColumns())
+            {
+                @if (CheckShownWithBreakpoint(col))
+                {
+                    var fieldName = col.GetFieldName();
+                    var displayName = col.GetDisplayName();
+                    <DynamicElement TagName="th" class="@GetHeaderClassString(col)" style="@GetFixedCellStyleString(col, 6)"
+                                    TriggerClick="col.Sortable" OnClick="@OnClickHeader(col)">
+                        <div class="@GetHeaderWrapperClassString(col)">
+                            @if(col.HeaderTemplate != null)
+                            {
+                                @col.HeaderTemplate(col)
+                            }
+                            else
+                            {
+                                <span class="@GetHeaderTextClassString(col)">@displayName</span>
+                            }
+                            @if (col.Filterable && !ShowFilterHeader)
+                            {
+                                <i class="@GetFilterClassString(fieldName)" data-field="@fieldName" @onclick:stopPropagation @onclick="() => OnFilterClick(col)"></i>
+                            }
+                            @if (col.Sortable)
+                            {
+                                <i class="@GetIconClassString(fieldName)"></i>
+                            }
+                        </div>
+                        @if (AllowResizing)
+                        {
+                            <span class="col-resizer"></span>
+                        }
+                    </DynamicElement>
+                }
+            }
+            @if (!IsExcel && ShowExtendButtons && !IsExtendButtonsInRowHeader)
+            {
+                @RenderExtendButtonsHeader
+            }
+            @if (hasScroll)
+            {
+                <th class="fixed-scroll"><div class="table-cell"><span>&nbsp;</span></div></th>
+            }
+        </tr>
+    }
+    @if (ShowFilterHeader)
+    {
+        <tr>
+            @if (ShowDetails())
+            {
+                <th>
+                    <div class="table-cell">&nbsp;</div>
+                </th>
+            }
+            @if (IsMultipleSelect)
+            {
+                <th>
+                    <div class="table-cell">&nbsp;</div>
+                </th>
+            }
+            @if (ShowLineNo)
+            {
+                <th>
+                    <div class="table-cell">&nbsp;</div>
+                </th>
+            }
+            @if (!IsExcel && ShowExtendButtons && IsExtendButtonsInRowHeader)
+            {
+                <th class="@ExtendButtonsColumnClass" style="@GetFixedExtendButtonsColumnStyleString(CalcMargin(0))">
+                    <div class="table-cell">&nbsp;</div>
+                </th>
+            }
+            <CascadingValue Value="this" IsFixed="true">
+                @foreach (var col in GetColumns())
+                {
+                    @if (CheckShownWithBreakpoint(col))
+                    {
+                        var fieldName = col.GetFieldName();
+                        var displayName = col.GetDisplayName();
+                        <th class="@GetHeaderClassString(col, true)" style="@GetFixedCellStyleString(col, 6)">
+                            <div class="tabel-cell">
+                                <TableFilter Column="col" IsHeaderRow="true" />
+                            </div>
+                        </th>
+                    }
+                }
+            </CascadingValue>
+            @if (!IsExcel && ShowExtendButtons && !IsExtendButtonsInRowHeader)
+            {
+                <th class="@ExtendButtonsColumnClass" style="@GetFixedExtendButtonsColumnStyleString(6)">
+                    <div class="table-cell">&nbsp;</div>
+                </th>
+            }
+            @if (hasScroll)
+            {
+                <th class="fixed-scroll"><div class="table-cell"><span>&nbsp;</span></div></th>
+            }
+        </tr>
+    }
+</thead>;
+
+RenderFragment<TItem> RenderRow => item =>
+@<DynamicElement TagName="tr" class="@GetRowClassString(item)"
+                 TriggerClick="@(ClickToSelect || OnClickRowCallback != null)" OnClick="() => ClickRow(item)"
+                 TriggerDoubleClick="@(DoubleClickToEdit || OnDoubleClickRowCallback != null)" OnDoubleClick="() => DoubleClickRow(item)">
+    @if (!IsExcel && ShowDetails())
+    {
+        <td>
+            <div class="@GetDetailBarClassString(item)">
+                @if (ShowDetailRow == null ? true : ShowDetailRow.Invoke(item))
+                {
+                    <i class="@GetDetailCaretClassString(item)" @onclick:stopPropagation @onclick="() => ExpandDetailRow(item)"></i>
+                }
+            </div>
+        </td>
+    }
+    @if (IsMultipleSelect)
+    {
+        <td>
+            <div class="table-cell">
+                <Checkbox TValue="TItem" Value="@item" State="RowCheckState(item)" OnStateChanged="OnCheck" @onclick:stopPropagation></Checkbox>
+            </div>
+        </td>
+    }
+    @if (ShowLineNo)
+    {
+        <td>
+            <div class="table-cell">@(RowItems.IndexOf(item) + 1 + (PageIndex -1) * PageItems)</div>
+        </td>
+    }
+    @{
+        var index = 0;
+        var prevColspan = 0;
+        var isInCell = EditInCell && SelectedRows.FirstOrDefault() == item;
+    }
+    @if (!IsExcel && ShowExtendButtons && IsExtendButtonsInRowHeader)
+    {
+        @RenderRowExtendButtons(item)
+    }
+    @foreach (var col in GetColumns())
+    {
+        @if (CheckShownWithBreakpoint(col))
+        {
+            @if (prevColspan > 1)
+            {
+                prevColspan--;
+                continue;
+            }
+            var cellClass = "";
+            int? colspan = null;
+            string? value = null;
+            @if (col.OnCellRender != null)
+            {
+                var args = new TableCellArgs { Row = item, ColumnName = col.GetFieldName() };
+                col.OnCellRender(args);
+                cellClass = args.Class;
+                colspan = args.Colspan;
+                value = args.Value;
+                prevColspan = colspan.HasValue ? colspan.Value : 0;
+            }
+            <td colspan="@GetColspan(colspan)" class="@GetFixedCellClassString(col, cellClass)" style="@GetFixedCellStyleString(col)">
+                @{
+                    var showArrow = IsTree && index++ == 0;
+                    var triggerClick = showArrow && CheckTreeChildren(item);
+                }
+                <DynamicElement TagName="div" TriggerClick="@triggerClick"
+                                OnClick="@ToggleTreeRow(item)" StopPropagation="showArrow"
+                                class="@GetCellClassString(col, triggerClick, isInCell)" style="@GetCellStyleString(col)">
+                    @if (showArrow)
+                    {
+                        <div class="is-node" style="@GetTreeStyleString(item)">
+                            <i class="@GetTreeClassString(item)"></i>
+                        </div>
+                    }
+                    @if (IsExcel)
+                    {
+                        @RenderExcelCell(col, item, ItemChangedType.Update)
+                    }
+                    else if(isInCell)
+                    {
+                        @RenderCell(col, EditModel, ItemChangedType.Update)
+                    }
+                    else
+                    {
+                        var triggerDoubleClick = OnDoubleClickCellCallback != null;
+                        <DynamicElement TagName="div" TriggerDoubleClick="triggerDoubleClick" GenerateElement="false"
+                                        OnDoubleClick="TriggerDoubleClickCell(col, item)" StopPropagation="true"
+                                        class="@GetDoubleClickCellClassString(triggerDoubleClick)">
+                            @if (value == null)
+                            {
+                                @GetValue(col, item)
+                            }
+                            else
+                            {
+                                @value
+                            }
+                        </DynamicElement>
+                    }
+                </DynamicElement>
+            </td>
+        }
+    }
+    @if (!IsExcel && ShowExtendButtons && !IsExtendButtonsInRowHeader)
+    {
+        @RenderRowExtendButtons(item)
+    }
+</DynamicElement>;
+
+RenderFragment RenderPlaceHolderRow =>
+@<tr>
+    @if (IsMultipleSelect)
+    {
+        <td>
+            <div class="table-cell">
+                <Checkbox TValue="TItem" State="CheckboxState.UnChecked"></Checkbox>
+            </div>
+        </td>
+    }
+    @if (!IsExcel && ShowExtendButtons && IsExtendButtonsInRowHeader)
+    {
+        <td><div class="table-cell is-ph"></div></td>
+    }
+    @foreach (var col in GetColumns())
+    {
+        <td><div class="table-cell is-ph"></div></td>
+    }
+    @if (!IsExcel && ShowExtendButtons && !IsExtendButtonsInRowHeader)
+    {
+        <td><div class="table-cell is-ph"></div></td>
+    }
+</tr>;
+
+RenderFragment<(TItem Item, ItemChangedType ChangedType)> RenderEditForm => item =>
+@<tr class="is-editform">
+    @{
+        var colspanCount = Columns.Count;
+        if (IsMultipleSelect) colspanCount++;
+        if (ShowLineNo) colspanCount++;
+        if (ShowDetails()) colspanCount++;
+        if (ShowExtendButtons) colspanCount++;
+    }
+    <td colspan="@colspanCount">
+        <div class="table-cell">
+            @if (EditTemplate != null)
+            {
+                @EditTemplate.Invoke(item.Item)
+            }
+            else
+            {
+                <ValidateForm Model="@item.Item" OnValidSubmit="context => SaveAsync(context, item.ChangedType)">
+                    <EditorForm TModel="TItem" Items="Columns.Where(c => c.Editable)" ItemsPerRow="EditDialogItemsPerRow" RowType="EditDialogRowType" LabelAlign="EditDialogLabelAlign">
+                        <Buttons>
+                            <div class="table-modal-footer">
+                                @if (IsTracking)
+                                {
+                                    <Button Color="Color.Primary" Icon="fa fa-save" Text="@CloseButtonText" OnClick="CancelSave" />
+                                }
+                                else
+                                {
+                                    <Button Color="Color.Secondary" Icon="fa fa-times" Text="@CancelDeleteButtonText" OnClick="CancelSave" />
+                                    <Button Color="Color.Primary" ButtonType="ButtonType.Submit" Icon="fa fa-save" Text="@SaveButtonText" />
+                                }
+                            </div>
+                        </Buttons>
+                    </EditorForm>
+                </ValidateForm>
+            }
+        </div>
+    </td>
+</tr>;
+
+RenderFragment RenderAdvanceSearchButton =>
+@<Button class="@AdvanceSearchClass" Icon="fa fa-search-plus" OnClickWithoutRender="ShowSearchDialog">
+    <span class="d-none d-sm-inline-block">@AdvanceButtonText</span>
+</Button>;
+
+RenderFragment RenderExtendButtonsHeader =>
+@<th class="@ExtendButtonsColumnClass" style="@GetFixedExtendButtonsColumnStyleString(6)">
+    <div class="table-cell is-button-column">
+        @ColumnButtonTemplateHeaderText
+    </div>
+</th>;
+
+RenderFragment<TItem> RenderExtendButtons => item =>
+@<div class="table-cell">
+    <label>@ColumnButtonTemplateHeaderText</label>
+    <span class="btn-group">
+        @if (GetShowEditButton(item))
+        {
+            <Button Size="Size.ExtraSmall" OnClick="() => ClickEditButton(item)" Icon="fa fa-edit" Text="@EditButtonText" />
+        }
+        @if (GetShowDeleteButton(item))
+        {
+            <PopConfirmButton Placement="Placement.Left" Size="Size.ExtraSmall"
+                              Color="Color.Danger" Icon="fa fa-remove" Text="@DeleteButtonText"
+                              CloseButtonText="@CancelDeleteButtonText"
+                              Content="@ConfirmDeleteContentText"
+                              ConfirmButtonColor="Color.Danger"
+                              ConfirmButtonText="@ConfirmDeleteButtonText"
+                              OnBeforeClick="@ClickBeforeDelete(item)"
+                              OnConfirm="DeleteAsync" />
+        }
+        <TableExtensionButton OnClickButton="args => OnClickExtensionButton(item, args)">
+            @RowButtonTemplate?.Invoke(item)
+        </TableExtensionButton>
+    </span>
+</div>;
+
+RenderFragment<TItem> RenderRowExtendButtons => item =>
+@<td class="@FixedExtendButtonsColumnClassString" style="@GetFixedExtendButtonsColumnStyleString()">
+    <div class="table-cell">
+        <div class="btn-group" @onclick:stopPropagation="true">
+            @{
+                var isInCell = EditInCell && SelectedRows.FirstOrDefault() == item;
+            }
+            @if (!isInCell)
+            {
+                <TableExtensionButton OnClickButton="args => OnClickExtensionButton(item, args)">
+                    @BeforeRowButtonTemplate?.Invoke(item)
+                </TableExtensionButton>
+            }
+            @if (GetShowEditButton(item))
+            {
+                @if (isInCell)
+                {
+                    @if (IsTracking)
+                    {
+                        <Button Size="Size.ExtraSmall" OnClick="@CancelSave" Color="Color.Success" Icon="fa fa-edit" Text="@CloseButtonText" />
+                    }
+                    else
+                    {
+                        <Button Size="Size.ExtraSmall" OnClick="ClickUpdateButtonCallback" Color="Color.Success" Icon="fa fa-edit" Text="@UpdateButtonText" />
+                        <Button Size="Size.ExtraSmall" OnClick="@CancelSave" Color="Color.Warning" Icon="fa fa-times" Text="@CancelButtonText" />
+                    }
+                }
+                else
+                {
+                    <Button Size="Size.ExtraSmall" OnClick="() => ClickEditButton(item)" Icon="fa fa-edit" Text="@EditButtonText" />
+                }
+            }
+            @if (!isInCell && GetShowDeleteButton(item))
+            {
+                <PopConfirmButton Placement="Placement.Left" Size="Size.ExtraSmall"
+                                  Color="Color.Danger" Icon="fa fa-remove" Text="@DeleteButtonText"
+                                  CloseButtonText="@CancelDeleteButtonText" Content="@ConfirmDeleteContentText"
+                                  ConfirmButtonColor="Color.Danger" ConfirmButtonText="@ConfirmDeleteButtonText"
+                                  OnBeforeClick="@ClickBeforeDelete(item)"
+                                  OnConfirm="DeleteAsync" />
+            }
+            @if (!isInCell)
+            {
+                <TableExtensionButton OnClickButton="args => OnClickExtensionButton(item, args)">
+                    @RowButtonTemplate?.Invoke(item)
+                </TableExtensionButton>
+            }
+        </div>
+    </div>
+</td>;
+
+RenderFragment RenderSearch =>
+@<Card>
+    <CardHeader>
+        <div class="d-flex">
+            <div class="table-search-collapse is-open">
+                <i class="table-search-collapse-arrow fa fa-chevron-circle-right"></i>
+                <div class="table-search-collapse-title">@SearchModalTitle</div>
+            </div>
+            @if (ShowSearchText)
+            {
+                <div class="input-group">
+                    <BootstrapInput class="table-toolbar-search" placeholder="@SearchPlaceholderText" @bind-Value="@SearchText">
+                        @if (ShowSearchTextTooltip)
+                        {
+                            <Tooltip Placement="Placement.Top" Title="@SearchTooltip" IsHtml="true" />
+                        }
+                    </BootstrapInput>
+                    @if (ShowResetButton)
+                    {
+                        <Button Color="Color.Secondary" Icon="fa fa-trash" OnClickWithoutRender="ClearSearchClick">
+                            <span class="d-none d-sm-inline-block">@ResetSearchButtonText</span>
+                        </Button>
+                    }
+                    <Button Color="Color.Secondary" Icon="fa fa-search" OnClickWithoutRender="SearchClick">
+                        <span class="d-none d-sm-inline-block">@SearchButtonText</span>
+                    </Button>
+                </div>
+            }
+            <div class="table-search-buttons">
+                @if (ShowResetButton)
+                {
+                    <Button Color="Color.Secondary" Icon="fa fa-trash" class="btn-xs ms-2" OnClickWithoutRender="ClearSearchClick">
+                        <span class="d-none d-sm-inline-block">@ResetSearchButtonText</span>
+                    </Button>
+                }
+                @if (ShowSearchButton)
+                {
+                    <Button Color="Color.Primary" Icon="fa fa-search" class="btn-xs ms-2" OnClickWithoutRender="SearchClick">
+                        <span class="d-none d-sm-inline-block">@SearchButtonText</span>
+                    </Button>
+                }
+            </div>
+        </div>
+    </CardHeader>
+    <CardBody>
+        @if(CustomerSearchModel != null && CustomerSearchTemplate != null)
+        {
+            @CustomerSearchTemplate(CustomerSearchModel)
+        }
+        else if(SearchTemplate != null)
+        {
+            @SearchTemplate(SearchModel)
+        }
+        else
+        {
+            <CascadingValue Value="true" IsFixed="true" Name="IsSearch">
+                <EditorForm Model="SearchModel" Items="GetSearchColumns()" ItemsPerRow="SearchDialogItemsPerRow" RowType="SearchDialogRowType" LabelAlign="SearchDialogLabelAlign">
+                </EditorForm>
+            </CascadingValue>
+        }
+    </CardBody>
+</Card>;
+}
