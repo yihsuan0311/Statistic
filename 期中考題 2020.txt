@@ -1,0 +1,31 @@
+Two firms i=1,2,engage in quantity competition in the market.
+Each of theem chooses the quantity it wants to produce: Firm 1 chooses q1,0<=q1<=30,
+and firm 2 chooses q2, 0<=q2<=30.The resulting mjarket price is P(q1,q2)=75-q1-q2.
+In additional, the total cost TCi(q1,q2) of firm i depends on 
+both firms choices:TC1(q1,q2)=q1^2(1+q2),TC2(q1,q2)=q2^2(1+q1),Each firm maximizes its profit,
+i.e. the difference between its revenue (i.e. P(q1,q2)x qi) and its total cost TCi(q1,q2)
+(a)Find the best response functions for both firms
+(b)Find The Nash equilibrium of the game (Hint:These firms are symmetric)
+(b)Show that firm 1's strategy q1=20 is strictly dominated.
+(c)Is firm 2's strategy q2=1 dominated ?
+
+
+Two firms i=1,2,are competing in the market.They simultaneouosly choose their price levels - each firm's price can be low,pi=1 or high ,p1=3.
+Product quality of firm 2 can be high or low, and is chosen by Nature.
+Product quality of firm 1 is known to be low. Total market demand is 2.Costs are zero.
+If product quality of both firms is low and their prices are identical, they will split the market.
+If product quality of both firms is low and their prices are different, the cheaper firm will take the entire market.
+If product qualities differ,high quality firm will take the entire market,unless the low quality firm is cheaper in the latter case they will split the market.
+Firms maximize their profits. We assume that firm 1 is the row player and firm 2 is the column player.
+Please answer following questions
+
+(a)Suppose that product quality of firm 2 tunes out to be low and is known to both firms.
+Please construct the game table. Find all pure-strategy Nash equilibria.
+(b)Suppose that product quality of firm 2 turns out to be high and is known to both firms.
+Please construct the game table.Find all pure-strategy Nash equilibris.
+(c)Suppose that the product quality of firm 2 is low with probability 0.5 and high with probability 0.5.
+These probabilities are known to both firms ex ante. After Nature makes its choice,
+only firm 2 knows its product quality.
+Please construct the game table.
+Find all pure-strategy Nash equilibria(Hint:You need to layout firm 2's strategies carefully)
+
